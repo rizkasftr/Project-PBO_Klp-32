@@ -1,19 +1,7 @@
 import javax.swing.*;
-<<<<<<< HEAD
-
-import api.Database;
-
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.util.Objects;
-=======
-import java.awt.*;
-import java.io.File;
-import java.io.IOException;
->>>>>>> 34d26d192b32abd07bee9ec6c4799fd8018f3688
 
 public class LoginContainer extends JPanel {
 
@@ -115,10 +103,6 @@ public class LoginContainer extends JPanel {
         // Action listeners
         loginButton.addActionListener(e -> {
             // Action for login button
-<<<<<<< HEAD
-            LoginBtnActionPerformed(e);
-=======
->>>>>>> 34d26d192b32abd07bee9ec6c4799fd8018f3688
         });
         registerButton.addActionListener(e -> {
             removeAll();
@@ -127,49 +111,4 @@ public class LoginContainer extends JPanel {
             repaint();
         });
     }
-<<<<<<< HEAD
-
-    private void LoginBtnActionPerformed(java.awt.event.ActionEvent evt) {
-        String username, passwordDB, query, passDB = null;
-  
-        int notFound = 0;
-  
-        try {
-           if ("".equals(userNameField.getText())) {
-              JOptionPane.showMessageDialog(new JFrame(), "Username tidak boleh kosong", "Error",
-                    JOptionPane.WARNING_MESSAGE);
-           } else if ("".equals(new String(passwordField.getPassword()))) {
-              JOptionPane.showMessageDialog(new JFrame(), "Password tidak boleh kosong", "Error",
-                    JOptionPane.WARNING_MESSAGE);
-           } else {
-              username = userNameField.getText();
-              passwordDB = new String(passwordField.getPassword());
-  
-              query = "SELECT * FROM user WHERE username = ? AND password = ?";
-              PreparedStatement pst = Database.database.prepareStatement(query);
-              pst.setString(1, username);
-              pst.setString(2, passwordDB);
-              ResultSet rs = pst.executeQuery();
-              while (rs.next()) {
-                 passDB = rs.getString("password");
-                 notFound = 1;
-              }
-              if (notFound == 1 && Objects.equals(passwordDB, passDB)) {
-                 JOptionPane.showMessageDialog(new JFrame(), "Login Berhasil", "Success",
-                       JOptionPane.INFORMATION_MESSAGE);
-                 new TestContainer(username);
-                 SwingUtilities.getWindowAncestor(LoginContainer.this).dispose();
-              } else {
-                 JOptionPane.showMessageDialog(new JFrame(), "Username atau Password salah", "Error",
-                       JOptionPane.ERROR_MESSAGE);
-              }
-           }
-  
-        } catch (Exception e) {
-           System.out.println("Error" + e.getMessage());
-        }
-     }
 }
-=======
-}
->>>>>>> 34d26d192b32abd07bee9ec6c4799fd8018f3688
