@@ -1,58 +1,104 @@
+import java.io.File;
+import java.io.IOException;
+import java.awt.*;
 import javax.swing.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 
 public class Timer {
-    private TimerListener timerListener;
-    private JLabel timerLabel;
     private int seconds;
-    private javax.swing.Timer timer;
+    private JLabel label = new JLabel();
+    private int minutesPart;
+    private int secondsPart;
+    private String time;
+    private int initialSeconds;
+    private boolean running = true;
+    private Thread thread;
 
-    public Timer(int interval) {
-        this.seconds = 60; // Waktu awal 60 detik
-        this.timerLabel = new JLabel("Waktu: " + seconds + " detik");
-        this.timer = new javax.swing.Timer(1000, new ActionListener() { // Timer berjalan setiap 1 detik
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                seconds--;
-                timerLabel.setText("Waktu: " + seconds + " detik");
-                if (seconds <= 0) {
-                    stopTimer(); // Hentikan timer ketika waktu habis
-                    if (timerListener != null) {
-                        timerListener.onTimeUp(); // Panggil listener jika waktu habis
-                    }
-                }
-            }
-        });
+    public Timer(int minutes) {
+        this.initialSeconds = minutes * 60;
+        this.seconds = initialSeconds;
+        Font poppinsFont = null;
+        Font poppinsFontBold = null;
+        try {
+            poppinsFont = Font.createFont(Font.TRUETYPE_FONT,
+                    new File("src\\font\\Poppins-Regular.ttf"));
+            poppinsFontBold = Font.createFont(Font.TRUETYPE_FONT,
+                    new File("src\\font\\Poppins-Bold.ttf"));
+        } catch (FontFormatException | IOException e) {
+            e.printStackTrace();
+        }
+        this.label.setFont(poppinsFontBold.deriveFont(18f));
+        this.label.setForeground(Color.decode("#4467df"));
+        this.minutesPart = seconds / 60;
+        this.secondsPart = seconds % 60;
+        this.time = String.format("%02d:%02d", minutesPart, secondsPart);
+        this.label.setText(time);
     }
 
-    public JLabel getLabel() {
-        return timerLabel;
+    public String getTime() {
+        return this.time;
     }
 
     public void start() {
-        if (timer != null) {
-            timer.start();
+        if (thread == null || !thread.isAlive()) {
+            thread = new Thread(this::run);
+            thread.start();
         }
+    }
+
+    private void run() {
+        while (running && seconds >= 0) {
+            minutesPart = seconds / 60;
+            secondsPart = seconds % 60;
+            time = String.format("%02d:%02d", minutesPart, secondsPart);
+            SwingUtilities.invokeLater(() -> label.setText(time));
+            seconds--;
+            try {
+                Thread.sleep(1000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        SwingUtilities.invokeLater(() -> label.setText("Time's up!"));
+    }
+
+    public JLabel getLabel() {
+        return label;
+    }
+
+    public boolean hasExpired() {
+        return seconds <= 0;
     }
 
     public void stopTimer() {
-        if (timer != null) {
-            timer.stop();
+        this.running = false;
+        if (thread != null) {
+            thread.interrupt();
         }
     }
 
-    public void resetTimer() {
-        stopTimer();
-        seconds = 60; // Reset waktu ke 60 detik
-        timerLabel.setText("Waktu: " + seconds + " detik");
+    public void restart() {
+        if (thread != null && thread.isAlive()) {
+            running = false;
+            try {
+                thread.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        this.running = true;
+        this.seconds = initialSeconds;
+        this.minutesPart = seconds / 60;
+        this.secondsPart = seconds % 60;
+        this.time = String.format("%02d:%02d", minutesPart, secondsPart);
+        SwingUtilities.invokeLater(() -> label.setText(time));
     }
 
-    public void setTimerListener(TimerListener listener) {
-        this.timerListener = listener;
+    public int getSeconds() {
+        return this.seconds;
     }
 
-    public interface TimerListener {
-        void onTimeUp();
+    public int getElapsedTimeInSeconds() {
+        // TODO Auto-generated method stub
+        throw new UnsupportedOperationException("Unimplemented method 'getElapsedTimeInSeconds'");
     }
 }

@@ -2,22 +2,27 @@ import javax.swing.*;
 import java.awt.*;
 import java.util.ArrayList;
 import java.util.Random;
+import api.Database;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 
 public class TestContainer extends JFrame {
     private JComboBox<String> languageSelector;
     private JTextField typingField;
     private JLabel wordLabel;
     private JLabel instructionsLabel;
-    private JLabel timerLabel; // Label untuk waktu
+    private JLabel timerLabel;
     private Timer gameTimer;
     private int correctWords = 0;
     private ArrayList<String> words;
-    private boolean isTimerStarted = false; // Untuk memastikan timer hanya berjalan sekali
-    private int seconds = 60; // Waktu dalam detik
-    private javax.swing.Timer timer; // Timer untuk menghitung waktu
-    private JButton restartButton; // Tombol untuk memulai permainan lagi
+    private boolean isTimerStarted = false;
+    private JButton restartButton;
+    private Thread timerThread;
+    private Timer timer;
+    private String username;
 
     public TestContainer(String username) {
+        this.username = username;
         setTitle("Mulai Permainan");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setSize(1000, 500);
@@ -27,7 +32,7 @@ public class TestContainer extends JFrame {
         mainPanel.setBackground(Color.WHITE);
 
         mainPanel.add(createHeaderPanel(), BorderLayout.NORTH);
-        mainPanel.add(createContentPanel(username), BorderLayout.CENTER);
+        mainPanel.add(createContentPanel(), BorderLayout.CENTER);
 
         add(mainPanel);
         setVisible(true);
@@ -47,13 +52,8 @@ public class TestContainer extends JFrame {
         languageSelector.setFont(new Font("Poppins", Font.PLAIN, 16));
         languageSelector.addActionListener(e -> loadWords());
 
-        JLabel leaderBoardLabel = createClickableLabel("Leaderboard", () ->
-            JOptionPane.showMessageDialog(this, "Fitur Leaderboard belum tersedia.")
-        );
-
-        JLabel profileLabel = createClickableLabel("Profile", () ->
-            JOptionPane.showMessageDialog(this, "Fitur Profile belum tersedia.")
-        );
+        JLabel leaderBoardLabel = createClickableLabel("Leaderboard", this::showLeaderBoard);
+        JLabel profileLabel = createClickableLabel("Profile", this::showProfile);
 
         headerPanel.add(Box.createHorizontalGlue());
         headerPanel.add(languageLabel);
@@ -67,16 +67,15 @@ public class TestContainer extends JFrame {
         return headerPanel;
     }
 
-    private JPanel createContentPanel(String username) {
+    private JPanel createContentPanel() {
         JPanel contentPanel = new JPanel();
         contentPanel.setLayout(new BoxLayout(contentPanel, BoxLayout.Y_AXIS));
         contentPanel.setBackground(Color.WHITE);
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         // Timer label
-        timerLabel = new JLabel("Waktu: 60 detik");
-        timerLabel.setFont(new Font("Poppins", Font.BOLD, 24));
-        timerLabel.setAlignmentX(CENTER_ALIGNMENT);
+        timer = new Timer(1); // Timer dengan waktu awal 1 menit
+        timerLabel = timer.getLabel();
         contentPanel.add(timerLabel);
 
         // Kata target
@@ -94,9 +93,9 @@ public class TestContainer extends JFrame {
         typingField.addActionListener(e -> {
             if (!isTimerStarted) {
                 isTimerStarted = true;
-                startTimer(username);  // Memulai timer ketika permainan dimulai
+                startGame();
             }
-            checkWord();  // Mengecek kata yang diketik
+            checkWord();
         });
         contentPanel.add(typingField);
 
@@ -111,29 +110,52 @@ public class TestContainer extends JFrame {
         restartButton = new JButton("Mulai Lagi");
         restartButton.setFont(new Font("Poppins", Font.PLAIN, 16));
         restartButton.setAlignmentX(CENTER_ALIGNMENT);
-       
-        restartButton.setVisible(false);  // Tidak ditampilkan saat permainan dimulai
+        restartButton.setVisible(false);
+        restartButton.addActionListener(e -> restartGame());
         contentPanel.add(restartButton);
 
         loadWords();
         return contentPanel;
     }
 
-    private void startTimer(String username) {
-        // Timer yang dimulai ketika permainan dimulai
-        if (timer == null) {
-            timer = new javax.swing.Timer(1000, e -> {
-                seconds--;
-                timerLabel.setText("Waktu: " + seconds + " detik");
-                if (seconds <= 0) {
-                    timer.stop();  // Hentikan timer ketika waktu habis
-                    typingField.setEditable(false);  // Nonaktifkan input
-                    restartButton.setVisible(true);  // Menampilkan tombol "Mulai Lagi"
-                    new WpmResult(username, correctWords).setVisible(true);  // Menampilkan hasil
+    private void startGame() {
+        if (timerThread == null || !timerThread.isAlive()) {
+            timer.start();
+            timerThread = new Thread(() -> {
+                while (!timer.hasExpired()) {
+                    try {
+                        Thread.sleep(1000);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
                 }
+                SwingUtilities.invokeLater(this::endGame);
             });
-            timer.start();  // Mulai timer
+            timerThread.start();
         }
+    }
+
+    private void endGame() {
+        typingField.setEditable(false);
+        restartButton.setVisible(true);
+        timer.stopTimer();
+
+        int wpm = calculateWPM();
+        saveScoreToDatabase(wpm); // Simpan skor ke database
+
+        // Tampilkan skor WPM
+        new WpmResult(username, wpm);
+    }
+
+    private void restartGame() {
+        correctWords = 0;
+        isTimerStarted = false;
+        typingField.setEditable(true);
+        typingField.setText("");
+        restartButton.setVisible(false);
+        loadWords();
+        timer.restart();
+        startGame();
     }
 
     private void loadWords() {
@@ -168,12 +190,24 @@ public class TestContainer extends JFrame {
             correctWords++;
             typingField.setText("");
             nextWord();
-        } else {
-            JOptionPane.showMessageDialog(this, "Kata yang Anda ketik salah! Coba lagi.");
         }
     }
 
-    
+    private int calculateWPM() {
+        return correctWords; // Menghitung jumlah kata benar sebagai WPM
+    }
+
+    private void saveScoreToDatabase(int wpm) {
+        try {
+            String query = "INSERT INTO score (id_user, score, no_attempt) VALUES ((SELECT id_user FROM user WHERE username = ?), ?, 1)";
+            PreparedStatement pst = Database.database.prepareStatement(query);
+            pst.setString(1, username);
+            pst.setInt(2, wpm);
+            pst.executeUpdate();
+        } catch (SQLException e) {
+            JOptionPane.showMessageDialog(this, "Gagal menyimpan skor ke database: " + e.getMessage());
+        }
+    }
 
     private JLabel createClickableLabel(String text, Runnable action) {
         JLabel label = new JLabel(text);
@@ -187,5 +221,13 @@ public class TestContainer extends JFrame {
             }
         });
         return label;
+    }
+
+    private void showLeaderBoard() {
+        new LeaderBoard();
+    }
+
+    private void showProfile() {
+        new ProfileContainer(username);
     }
 }
