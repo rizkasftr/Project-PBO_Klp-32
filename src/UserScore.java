@@ -23,3 +23,4 @@ public class UserScore {
        this.high_score = high_score;
     }
  }
+ 

@@ -1,10 +1,12 @@
-import javax.swing.*;
+import api.Database;
 import java.awt.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Random;
-import api.Database;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+import javax.swing.*;
 
 public class TestContainer extends JFrame {
     private JComboBox<String> languageSelector;
@@ -12,7 +14,6 @@ public class TestContainer extends JFrame {
     private JLabel wordLabel;
     private JLabel instructionsLabel;
     private JLabel timerLabel;
-    private Timer gameTimer;
     private int correctWords = 0;
     private ArrayList<String> words;
     private boolean isTimerStarted = false;
@@ -73,19 +74,16 @@ public class TestContainer extends JFrame {
         contentPanel.setBackground(Color.WHITE);
         contentPanel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
-        // Timer label
-        timer = new Timer(1); // Timer dengan waktu awal 1 menit
+        timer = new Timer(1);
         timerLabel = timer.getLabel();
         contentPanel.add(timerLabel);
 
-        // Kata target
         wordLabel = new JLabel("", SwingConstants.CENTER);
         wordLabel.setFont(new Font("Poppins", Font.BOLD, 32));
         wordLabel.setAlignmentX(CENTER_ALIGNMENT);
         contentPanel.add(wordLabel);
         contentPanel.add(Box.createVerticalStrut(20));
 
-        // Field untuk mengetik
         typingField = new JTextField();
         typingField.setFont(new Font("Poppins", Font.PLAIN, 24));
         typingField.setMaximumSize(new Dimension(400, 40));
@@ -99,14 +97,12 @@ public class TestContainer extends JFrame {
         });
         contentPanel.add(typingField);
 
-        // Petunjuk
         instructionsLabel = new JLabel("Ketik kata di atas dan tekan Enter untuk memulai", SwingConstants.CENTER);
         instructionsLabel.setFont(new Font("Poppins", Font.ITALIC, 16));
         instructionsLabel.setForeground(Color.GRAY);
         instructionsLabel.setAlignmentX(CENTER_ALIGNMENT);
         contentPanel.add(instructionsLabel);
 
-        // Tombol Mulai Lagi
         restartButton = new JButton("Mulai Lagi");
         restartButton.setFont(new Font("Poppins", Font.PLAIN, 16));
         restartButton.setAlignmentX(CENTER_ALIGNMENT);
@@ -141,10 +137,11 @@ public class TestContainer extends JFrame {
         timer.stopTimer();
 
         int wpm = calculateWPM();
-        saveScoreToDatabase(wpm); // Simpan skor ke database
+        saveScoreToDatabase(wpm);
 
-        // Tampilkan skor WPM
-        new WpmResult(username, wpm);
+        SwingUtilities.invokeLater(() -> {
+            new WpmResult(username, wpm);
+        });
     }
 
     private void restartGame() {
@@ -194,19 +191,35 @@ public class TestContainer extends JFrame {
     }
 
     private int calculateWPM() {
-        return correctWords; // Menghitung jumlah kata benar sebagai WPM
+        return correctWords;
     }
 
-    private void saveScoreToDatabase(int wpm) {
-        try {
-            String query = "INSERT INTO score (id_user, score, no_attempt) VALUES ((SELECT id_user FROM user WHERE username = ?), ?, 1)";
-            PreparedStatement pst = Database.database.prepareStatement(query);
+    private void saveScoreToDatabase(int score) {
+        String query = "INSERT INTO score (id_user, no_attempt, score) VALUES ((SELECT id_user FROM user WHERE username = ?), ?, ?)";
+        try (Connection conn = new Database().getConnection();
+             PreparedStatement pst = conn.prepareStatement(query)) {
             pst.setString(1, username);
-            pst.setInt(2, wpm);
+            pst.setInt(2, getNoAttempt(username) + 1);
+            pst.setInt(3, score);
             pst.executeUpdate();
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Gagal menyimpan skor ke database: " + e.getMessage());
+            e.printStackTrace();
         }
+    }
+
+    private int getNoAttempt(String username) {
+        String query = "SELECT COUNT(*) as attempt FROM score WHERE id_user = (SELECT id_user FROM user WHERE username = ?)";
+        try (Connection conn = new Database().getConnection();
+             PreparedStatement pst = conn.prepareStatement(query)) {
+            pst.setString(1, username);
+            ResultSet rs = pst.executeQuery();
+            if (rs.next()) {
+                return rs.getInt("attempt");
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return 0;
     }
 
     private JLabel createClickableLabel(String text, Runnable action) {
@@ -224,7 +237,7 @@ public class TestContainer extends JFrame {
     }
 
     private void showLeaderBoard() {
-        new LeaderBoard();
+        new LeaderBoardFrame(); 
     }
 
     private void showProfile() {

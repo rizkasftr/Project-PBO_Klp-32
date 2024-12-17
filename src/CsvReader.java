@@ -1,4 +1,4 @@
-public import java.io.BufferedReader;
+import java.io.BufferedReader;
 import java.io.FileReader;
 import java.util.ArrayList;
 
@@ -20,6 +20,4 @@ public class CsvReader {
     public ArrayList<String> getRecords() {
         return records;
     }
-} {
-    
 }

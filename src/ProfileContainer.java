@@ -1,10 +1,11 @@
+import api.Database;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import javax.swing.*;
-import api.Database;
 
 public class ProfileContainer extends JFrame {
 
@@ -27,6 +28,8 @@ public class ProfileContainer extends JFrame {
       } catch (FontFormatException | IOException e) {
          e.printStackTrace();
       }
+
+      
 
       // Main panel for profile container
       JPanel panel = new JPanel();
@@ -156,10 +159,27 @@ public class ProfileContainer extends JFrame {
       setVisible(true);
    }
 
-   private void getUserStats(String username) {
+   // private void getUserStats(String username) {
+   //    try {
+   //       String query = "SELECT COUNT(*) AS attempts, MAX(score) AS high_score, MAX(score) AS last_score FROM score WHERE id_user = (SELECT id_user FROM user WHERE username = ?)";
+   //       PreparedStatement pst = Database.database.prepareStatement(query);
+   //       pst.setString(1, username);
+   //       ResultSet rs = pst.executeQuery();
+   //       if (rs.next()) {
+   //          jmlh_attempt = rs.getInt("attempts");
+   //          high_score = rs.getInt("high_score");
+   //          last_score = rs.getInt("last_score");
+   //       }
+   //    } catch (Exception e) {
+   //       JOptionPane.showMessageDialog(this, "Error fetching user stats: " + e.getMessage());
+   //    }
+   // }
+
+    private void getUserStats(String username) {
       try {
          String query = "SELECT COUNT(*) AS attempts, MAX(score) AS high_score, MAX(score) AS last_score FROM score WHERE id_user = (SELECT id_user FROM user WHERE username = ?)";
-         PreparedStatement pst = Database.database.prepareStatement(query);
+         Connection conn = new Database().getConnection(); // Perbaiki baris ini
+         PreparedStatement pst = conn.prepareStatement(query);
          pst.setString(1, username);
          ResultSet rs = pst.executeQuery();
          if (rs.next()) {
